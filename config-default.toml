@@ -1,0 +1,4 @@
+# Provide token in quotes. You can get it from @BotFather
+token = ""
+# Provide owner's Telegram username in quotes and without @ symbol (e.g. "cyrmax")
+owner = ""
