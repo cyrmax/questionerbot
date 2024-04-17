@@ -2,3 +2,5 @@
 token = ""
 # Provide owner's Telegram username in quotes and without @ symbol (e.g. "cyrmax")
 owner = ""
+# Provide owner's chat ID. It can be retrieved with /id command after setting the owner username
+ownerChatID = 0
