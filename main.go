@@ -98,24 +98,48 @@ func handleText(context tele.Context, config Config, db storage.Storage) error {
 }
 
 func handleOwnerText(context tele.Context, config Config, db storage.Storage) error {
-	return context.Reply(fmt.Sprintf("Hello, %s! You are the owner!", config.Owner))
+	if context.Message().ReplyTo == nil {
+		return context.Reply("If you want to answer to a question, then reply to the message with the question.")
+	}
+	userChatID, userMsgID, err := db.Get(context.Chat().ID, context.Message().ReplyTo.ID)
+	if err != nil {
+		log.Print(err)
+		return err
+	}
+	userChat, err := context.Bot().ChatByID(userChatID)
+	if err != nil {
+		log.Print(err)
+		return err
+	}
+	oldUserMsg := tele.Message{
+		ID: userMsgID, Chat: userChat}
+	_, err = context.Bot().Reply(&oldUserMsg, context.Message().Text)
+	if err != nil {
+		return err
+	}
+	return context.Reply("Your reply was successfully send.")
 }
 
 func handleUserText(context tele.Context, config Config, db storage.Storage) error {
-	chatID := context.Chat().ID
-	msgID := context.Message().ID
-	chat, err := context.Bot().ChatByID(config.OwnerChatID)
+	userChatID := context.Chat().ID
+	userMsgID := context.Message().ID
+	ownerChat, err := context.Bot().ChatByID(config.OwnerChatID)
 	if err != nil {
 		log.Printf("Unable to get chat with bot owner. %s", err)
 		return err
 	}
-	msg, err := context.Bot().Send(chat, context.Message().Text)
+	msgToOwner, err := context.Bot().Send(ownerChat, context.Message().Text)
 	if err != nil {
 		log.Printf("Unable to send message to bot owner. %s", err)
 		return err
 	}
-	log.Printf("Sent message to bot owner with ID %d", msg.ID)
-	db.Set(chatID, msgID, config.OwnerChatID, msg.ID)
+	log.Printf("Sent message to bot owner with ID %d", msgToOwner.ID)
+	err = db.Set(ownerChat.ID, msgToOwner.ID, userChatID, userMsgID)
+	if err != nil {
+		log.Printf("Unable to store message. %s", err)
+		return err
+	}
+	context.Reply("Your question is successfully sent to the bot owner.")
 	return nil
 }
 
