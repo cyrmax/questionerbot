@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"path"
-	"sync"
+	"questionerbot/storage"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -19,16 +19,6 @@ type Config struct {
 	Token       string `toml:"token"`
 	Owner       string `toml:"owner"`
 	OwnerChatID int64  `toml:"ownerChatID"`
-}
-
-type UniqueMsg struct {
-	ChatID int64
-	MsgID  int
-}
-
-type Database struct {
-	sync.RWMutex
-	Data map[UniqueMsg]UniqueMsg
 }
 
 func readConfig(filePath string) (config Config, err error) {
@@ -59,10 +49,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	db := Database{Data: map[UniqueMsg]UniqueMsg{}}
+	db := storage.NewInMemoryStorage()
 	log.Printf("Successfully authorized bot with username %s", bot.Me.Username)
-	bot.Handle("/start", func(c tele.Context) error { return handleStart(c, config, &db) })
-	bot.Handle(tele.OnText, func(c tele.Context) error { return handleText(c, config, &db) })
+	bot.Handle("/start", func(c tele.Context) error { return handleStart(c, config, db) })
+	bot.Handle(tele.OnText, func(c tele.Context) error { return handleText(c, config, db) })
 	bot.Handle("/id", func(c tele.Context) error { return handleID(c, config) })
 	bot.Handle("/status", func(c tele.Context) error { return handleStatus(c, config) })
 	bot.Start()
@@ -92,14 +82,14 @@ func handleID(context tele.Context, config Config) error {
 	}
 }
 
-func handleStart(context tele.Context, config Config, db *Database) error {
+func handleStart(context tele.Context, config Config, db storage.Storage) error {
 	if context.Message().Sender.Username == config.Owner {
 		return context.Reply(fmt.Sprintf("Hello, %s! You are the owner!", config.Owner))
 	}
 	return context.Reply("Hello! With this bot you can easily send anonimous questions to Cyrmax")
 }
 
-func handleText(context tele.Context, config Config, db *Database) error {
+func handleText(context tele.Context, config Config, db storage.Storage) error {
 	if context.Message().Sender.Username == config.Owner {
 		return handleOwnerText(context, config, db)
 	} else {
@@ -107,14 +97,13 @@ func handleText(context tele.Context, config Config, db *Database) error {
 	}
 }
 
-func handleOwnerText(context tele.Context, config Config, db *Database) error {
+func handleOwnerText(context tele.Context, config Config, db storage.Storage) error {
 	return context.Reply(fmt.Sprintf("Hello, %s! You are the owner!", config.Owner))
 }
 
-func handleUserText(context tele.Context, config Config, db *Database) error {
+func handleUserText(context tele.Context, config Config, db storage.Storage) error {
 	chatID := context.Chat().ID
 	msgID := context.Message().ID
-	log.Printf("Got message with ID %d in chat %d", msgID, chatID)
 	chat, err := context.Bot().ChatByID(config.OwnerChatID)
 	if err != nil {
 		log.Printf("Unable to get chat with bot owner. %s", err)
@@ -126,9 +115,7 @@ func handleUserText(context tele.Context, config Config, db *Database) error {
 		return err
 	}
 	log.Printf("Sent message to bot owner with ID %d", msg.ID)
-	db.Lock()
-	defer db.Unlock()
-	db.Data[UniqueMsg{ChatID: chatID, MsgID: msgID}] = UniqueMsg{ChatID: msg.Chat.ID, MsgID: msg.ID}
+	db.Set(chatID, msgID, config.OwnerChatID, msg.ID)
 	return nil
 }
 
