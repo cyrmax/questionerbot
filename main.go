@@ -113,14 +113,47 @@ func handleOwnerText(context tele.Context, config Config, db storage.Storage) er
 	}
 	oldUserMsg := tele.Message{
 		ID: userMsgID, Chat: userChat}
-	_, err = context.Bot().Reply(&oldUserMsg, context.Message().Text)
+	newMsg, err := context.Bot().Reply(&oldUserMsg, context.Message().Text)
 	if err != nil {
+		return err
+	}
+	err = db.Set(newMsg.Chat.ID, newMsg.ID, context.Chat().ID, context.Message().ID)
+	if err != nil {
+		log.Print(err)
+		return err
+	}
+	return context.Reply("Your reply was successfully send.")
+}
+
+func handleUserReply(context tele.Context, config Config, db storage.Storage) error {
+	ownerChatID, ownerMsgID, err := db.Get(context.Chat().ID, context.Message().ReplyTo.ID)
+	if err != nil {
+		log.Print(err)
+		return err
+	}
+	ownerChat, err := context.Bot().ChatByID(ownerChatID)
+	if err != nil {
+		log.Print(err)
+		return err
+	}
+	oldOwnerMsg := tele.Message{
+		ID: ownerMsgID, Chat: ownerChat}
+	newMsg, err := context.Bot().Reply(&oldOwnerMsg, context.Message().Text)
+	if err != nil {
+		return err
+	}
+	err = db.Set(newMsg.Chat.ID, newMsg.ID, context.Chat().ID, context.Message().ID)
+	if err != nil {
+		log.Print(err)
 		return err
 	}
 	return context.Reply("Your reply was successfully send.")
 }
 
 func handleUserText(context tele.Context, config Config, db storage.Storage) error {
+	if context.Message().ReplyTo != nil {
+		return handleUserReply(context, config, db)
+	}
 	userChatID := context.Chat().ID
 	userMsgID := context.Message().ID
 	ownerChat, err := context.Bot().ChatByID(config.OwnerChatID)
