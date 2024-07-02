@@ -7,11 +7,16 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"path/filepath"
+	"questionerbot/l10n"
 	"questionerbot/storage"
+	"strings"
 	"time"
 
 	"github.com/BurntSushi/toml"
+	"github.com/pkg/errors"
 	tele "gopkg.in/telebot.v3"
+	"gopkg.in/telebot.v3/middleware"
 )
 
 type Config struct {
@@ -25,6 +30,29 @@ func readConfig(filePath string) (config Config, err error) {
 	config.ConfigPath = filePath
 	_, err = toml.DecodeFile(filePath, &config)
 	return
+}
+
+var LOCALIZER *l10n.Localizer
+
+func init() {
+	log.Println("Loading locales")
+	LOCALIZER = l10n.NewLocalizer("en")
+	items, err := os.ReadDir("./resources")
+	if err != nil {
+		log.Fatal(errors.Wrap(err, "Error reading locales directory"))
+		return
+	}
+	for _, file := range items {
+		if !file.IsDir() || strings.HasSuffix(file.Name(), ".toml") {
+			bundle, err := l10n.NewBundleFromFile(filepath.Join("./resources", file.Name()))
+			if err != nil {
+				log.Println(errors.Wrap(err, "Unable to load locale"))
+				continue
+			}
+			LOCALIZER.AddBundle(bundle)
+			log.Printf("Loaded locale %s", bundle.LocaleCode)
+		}
+	}
 }
 
 func main() {
@@ -51,42 +79,52 @@ func main() {
 	}
 	db := storage.NewInMemoryStorage()
 	log.Printf("Successfully authorized bot with username %s", bot.Me.Username)
+	bot.Use(middleware.Logger(log.Default()))
 	bot.Handle("/start", func(c tele.Context) error { return handleStart(c, config, db) })
 	bot.Handle(tele.OnText, func(c tele.Context) error { return handleText(c, config, db) })
 	bot.Handle("/id", func(c tele.Context) error { return handleID(c, config) })
 	bot.Handle("/status", func(c tele.Context) error { return handleStatus(c, config) })
+	bot.Handle("/lng", handleLanguage)
 	bot.Start()
 }
 
+func handleLanguage(context tele.Context) error {
+	lng := context.Message().Sender.LanguageCode
+	return context.Reply(fmt.Sprintf("Your language code from Telegram is: %s", lng))
+}
+
 func handleStatus(context tele.Context, config Config) error {
+	lng := context.Message().Sender.LanguageCode
 	if context.Message().Sender.Username == config.Owner {
-		text := "Here's the bot status:\n"
+		text := LOCALIZER.Get("bot_status_title", lng)
 		if config.OwnerChatID == 0 {
-			text += "Owner chat ID is not set\n"
+			text += LOCALIZER.Get("bot_status_no_id", lng)
 		} else if config.OwnerChatID != context.Chat().ID {
-			text += "Owner chat ID is incorrect\n"
+			text += LOCALIZER.Get("bot_status_wrong_id", lng)
 		} else {
-			text += "Everything is set up correctly. You can use the bot."
+			text += LOCALIZER.Get("bot_status_ok", lng)
 		}
 		return context.Reply(text)
 	} else {
-		return context.Reply("You are not the owner")
+		return context.Reply(LOCALIZER.Get("bot_status_not_owner", lng))
 	}
 }
 
 func handleID(context tele.Context, config Config) error {
+	lng := context.Message().Sender.LanguageCode
 	if context.Message().Sender.Username == config.Owner {
-		return context.Reply(fmt.Sprintf("Your chat ID is \n%d", context.Chat().ID))
+		return context.Reply(LOCALIZER.Getf("your_chat_id", lng, context.Chat().ID))
 	} else {
-		return context.Reply("You are not the owner")
+		return context.Reply(LOCALIZER.Get("bot_status_not_owner", lng))
 	}
 }
 
 func handleStart(context tele.Context, config Config, db storage.Storage) error {
+	lng := context.Message().Sender.LanguageCode
 	if context.Message().Sender.Username == config.Owner {
-		return context.Reply(fmt.Sprintf("Hello, %s! You are the owner!", config.Owner))
+		return context.Reply(LOCALIZER.Getf("bot_status_owner", lng, config.Owner))
 	}
-	return context.Reply("Hello! With this bot you can easily send anonimous questions to Cyrmax")
+	return context.Reply(LOCALIZER.Get("user_welcome", lng))
 }
 
 func handleText(context tele.Context, config Config, db storage.Storage) error {
@@ -98,59 +136,56 @@ func handleText(context tele.Context, config Config, db storage.Storage) error {
 }
 
 func handleOwnerText(context tele.Context, config Config, db storage.Storage) error {
+	lng := context.Message().Sender.LanguageCode
 	if context.Message().ReplyTo == nil {
-		return context.Reply("If you want to answer to a question, then reply to the message with the question.")
+		return context.Reply(LOCALIZER.Get("hint_answer", lng))
 	}
 	userChatID, userMsgID, err := db.Get(context.Chat().ID, context.Message().ReplyTo.ID)
 	if err != nil {
-		log.Print(err)
-		return err
+		return errors.Wrap(err, "unable to get user chat and message ID from db")
 	}
 	userChat, err := context.Bot().ChatByID(userChatID)
 	if err != nil {
-		log.Print(err)
-		return err
+		return errors.Wrap(err, "unable to get user chat")
 	}
 	oldUserMsg := tele.Message{
 		ID: userMsgID, Chat: userChat}
 	newMsg, err := context.Bot().Reply(&oldUserMsg, context.Message().Text)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "Unable to send message")
 	}
 	err = db.Set(newMsg.Chat.ID, newMsg.ID, context.Chat().ID, context.Message().ID)
 	if err != nil {
-		log.Print(err)
-		return err
+		return errors.Wrap(err, "Unable to save values in cache")
 	}
-	return context.Reply("Your reply was successfully send.")
+	return context.Reply(LOCALIZER.Get("reply_sent", lng))
 }
 
 func handleUserReply(context tele.Context, config Config, db storage.Storage) error {
+	lng := context.Message().Sender.LanguageCode
 	ownerChatID, ownerMsgID, err := db.Get(context.Chat().ID, context.Message().ReplyTo.ID)
 	if err != nil {
-		log.Print(err)
-		return err
+		return errors.Wrap(err, "unable to get owner chat and message ID from db")
 	}
 	ownerChat, err := context.Bot().ChatByID(ownerChatID)
 	if err != nil {
-		log.Print(err)
-		return err
+		return errors.Wrap(err, "unable to get owner chat")
 	}
 	oldOwnerMsg := tele.Message{
 		ID: ownerMsgID, Chat: ownerChat}
 	newMsg, err := context.Bot().Reply(&oldOwnerMsg, context.Message().Text)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "Unable to send message")
 	}
 	err = db.Set(newMsg.Chat.ID, newMsg.ID, context.Chat().ID, context.Message().ID)
 	if err != nil {
-		log.Print(err)
-		return err
+		return errors.Wrap(err, "Unable to save values in cache")
 	}
-	return context.Reply("Your reply was successfully send.")
+	return context.Reply(LOCALIZER.Get("reply_sent", lng))
 }
 
 func handleUserText(context tele.Context, config Config, db storage.Storage) error {
+	lng := context.Message().Sender.LanguageCode
 	if context.Message().ReplyTo != nil {
 		return handleUserReply(context, config, db)
 	}
@@ -158,21 +193,18 @@ func handleUserText(context tele.Context, config Config, db storage.Storage) err
 	userMsgID := context.Message().ID
 	ownerChat, err := context.Bot().ChatByID(config.OwnerChatID)
 	if err != nil {
-		log.Printf("Unable to get chat with bot owner. %s", err)
-		return err
+		return errors.Wrap(err, "unable to get owner chat")
 	}
-	msgToOwner, err := context.Bot().Send(ownerChat, context.Message().Text)
+	msgToOwner, err := context.Bot().Send(ownerChat, LOCALIZER.Getf("new_question", lng, context.Message().Text))
 	if err != nil {
-		log.Printf("Unable to send message to bot owner. %s", err)
-		return err
+		return errors.Wrap(err, "unable to send message to owner")
 	}
 	log.Printf("Sent message to bot owner with ID %d", msgToOwner.ID)
 	err = db.Set(ownerChat.ID, msgToOwner.ID, userChatID, userMsgID)
 	if err != nil {
-		log.Printf("Unable to store message. %s", err)
-		return err
+		return errors.Wrap(err, "Unable to save values in cache")
 	}
-	context.Reply("Your question is successfully sent to the bot owner.")
+	context.Reply(LOCALIZER.Get("question_sent", lng))
 	return nil
 }
 

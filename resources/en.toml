@@ -1,0 +1,20 @@
+# Translator: Kirill Belousov
+# https://github.com/cyrmax
+
+locale-code = "en"
+display_name = "English"
+
+[messages]
+question_sent = "Your question is successfully sent to the bot owner."
+new_question = "You have a new anonymous question:\n\n%s"
+bot_status_title = "Here's the bot status:\n"
+bot_status_no_id = "Owner chat ID is not set\n"
+bot_status_wrong_id = "Owner chat ID is incorrect\n"
+bot_status_ok = "Everything is set up correctly. You can use the bot."
+bot_status_not_owner = "You are not the owner"
+bot_status_owner = "Hello, %s! You are the owner!"
+your_chat_id = "Your chat ID is \n%d"
+user_welcome = "Hello! With this bot you can easily send anonimous questions and receive answers."
+hint_answer = "If you want to answer to a question, then reply to the message with the question."
+reply_sent = "Your reply was successfully send."
+new_reply = "You have a new reply:\n\n%s"

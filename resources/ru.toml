@@ -1,0 +1,20 @@
+# Translator: Kirill Belousov
+# https://github.com/cyrmax
+
+locale-code = "ru"
+display_name = "Русский"
+
+[messages]
+question_sent = "Ваш вопрос успешно отправлено владельцу бота."
+new_question = "У вас новый анонимный вопрос:\n\n%s"
+bot_status_title = "Статус бота:\n"
+bot_status_no_id = "ID чата с владельцем не установлен.\n"
+bot_status_wrong_id = "Неверный ID чата с владельцем.\n"
+bot_status_ok = "Все настроено. Вы можете использовать бота."
+bot_status_not_owner = "Вы не являетесь владельцем бота."
+bot_status_owner = "Привет, %s! Вы владелец бота!"
+your_chat_id = "Ваш ID чата: \n%d"
+user_welcome = "Привет! С помощью этого бота вы можете отправлять анонимные вопросы и получать ответы."
+hint_answer = "Если вы хотите ответить на вопрос, то ответьте на сообщение с вопросом."
+reply_sent = "Ваш ответ был успешно отправлен."
+new_reply = "У вас новый ответ:\n\n%s"
