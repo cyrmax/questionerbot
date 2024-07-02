@@ -16,14 +16,14 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/pkg/errors"
 	tele "gopkg.in/telebot.v3"
-	"gopkg.in/telebot.v3/middleware"
 )
 
 type Config struct {
-	ConfigPath  string
-	Token       string `toml:"token"`
-	Owner       string `toml:"owner"`
-	OwnerChatID int64  `toml:"ownerChatID"`
+	ConfigPath    string
+	Token         string `toml:"token"`
+	Owner         string `toml:"owner"`
+	OwnerChatID   int64  `toml:"owner-chat-id"`
+	OwnerLanguage string `toml:"owner-language"`
 }
 
 func readConfig(filePath string) (config Config, err error) {
@@ -79,7 +79,6 @@ func main() {
 	}
 	db := storage.NewInMemoryStorage()
 	log.Printf("Successfully authorized bot with username %s", bot.Me.Username)
-	bot.Use(middleware.Logger(log.Default()))
 	bot.Handle("/start", func(c tele.Context) error { return handleStart(c, config, db) })
 	bot.Handle(tele.OnText, func(c tele.Context) error { return handleText(c, config, db) })
 	bot.Handle("/id", func(c tele.Context) error { return handleID(c, config) })
@@ -120,10 +119,10 @@ func handleID(context tele.Context, config Config) error {
 }
 
 func handleStart(context tele.Context, config Config, db storage.Storage) error {
-	lng := context.Message().Sender.LanguageCode
 	if context.Message().Sender.Username == config.Owner {
-		return context.Reply(LOCALIZER.Getf("bot_status_owner", lng, config.Owner))
+		return context.Reply(LOCALIZER.Getf("bot_status_owner", config.OwnerLanguage, config.Owner))
 	}
+	lng := context.Message().Sender.LanguageCode
 	return context.Reply(LOCALIZER.Get("user_welcome", lng))
 }
 
@@ -162,7 +161,7 @@ func handleOwnerText(context tele.Context, config Config, db storage.Storage) er
 }
 
 func handleUserReply(context tele.Context, config Config, db storage.Storage) error {
-	lng := context.Message().Sender.LanguageCode
+	userLng := context.Message().Sender.LanguageCode
 	ownerChatID, ownerMsgID, err := db.Get(context.Chat().ID, context.Message().ReplyTo.ID)
 	if err != nil {
 		return errors.Wrap(err, "unable to get owner chat and message ID from db")
@@ -181,30 +180,30 @@ func handleUserReply(context tele.Context, config Config, db storage.Storage) er
 	if err != nil {
 		return errors.Wrap(err, "Unable to save values in cache")
 	}
-	return context.Reply(LOCALIZER.Get("reply_sent", lng))
+	return context.Reply(LOCALIZER.Get("reply_sent", userLng))
 }
 
 func handleUserText(context tele.Context, config Config, db storage.Storage) error {
-	lng := context.Message().Sender.LanguageCode
+	userLng := context.Message().Sender.LanguageCode
 	if context.Message().ReplyTo != nil {
 		return handleUserReply(context, config, db)
 	}
+	ownerLng := config.OwnerLanguage
 	userChatID := context.Chat().ID
 	userMsgID := context.Message().ID
 	ownerChat, err := context.Bot().ChatByID(config.OwnerChatID)
 	if err != nil {
 		return errors.Wrap(err, "unable to get owner chat")
 	}
-	msgToOwner, err := context.Bot().Send(ownerChat, LOCALIZER.Getf("new_question", lng, context.Message().Text))
+	msgToOwner, err := context.Bot().Send(ownerChat, LOCALIZER.Getf("new_question", ownerLng, context.Message().Text))
 	if err != nil {
 		return errors.Wrap(err, "unable to send message to owner")
 	}
-	log.Printf("Sent message to bot owner with ID %d", msgToOwner.ID)
 	err = db.Set(ownerChat.ID, msgToOwner.ID, userChatID, userMsgID)
 	if err != nil {
 		return errors.Wrap(err, "Unable to save values in cache")
 	}
-	context.Reply(LOCALIZER.Get("question_sent", lng))
+	context.Reply(LOCALIZER.Get("question_sent", userLng))
 	return nil
 }
 

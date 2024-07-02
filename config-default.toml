@@ -1,6 +1,8 @@
-# Provide token in quotes. You can get it from @BotFather
+# Provide token in quotes. You can get it from @BotFather in Telegram
 token = ""
-# Provide owner's Telegram username in quotes and without @ symbol (e.g. "cyrmax")
+# Provide owner's Telegram username in quotes and without @ symbol (e.g. "goprogger")
 owner = ""
-# Provide owner's chat ID. It can be retrieved with /id command after setting the owner username
-ownerChatID = 0
+# Provide owner's chat ID. It can be retrieved by sending /id command to the bot after setting the owner username
+owner-chat-id = 0
+# Provide desired locale (It only applies to what you see as an owner. For others the localization mechanics apply)
+owner-language = "en"
