@@ -1,0 +1,20 @@
+# Fordította: Till Nikolett
+# https://destranis.github.io
+
+locale-code = "hu"
+display_name = "Magyar"
+
+[messages]
+question_sent = "Kérdés sikeresen elküldve."
+new_question = "Új kérdésed érkezett:\n\n%s"
+bot_status_title = "A bot státusza:\n"
+bot_status_no_id = "A chat azonosító nincs beállítva\n"
+bot_status_wrong_id = "Helytelen chat azonosító\n"
+bot_status_ok = "Sikeres beállítás. Most már használatba veheted a botot."
+bot_status_not_owner = "Nem vagy a bot tulajdonosa"
+bot_status_owner = "Üdv, %s! Te vagy a tulajdonos!"
+your_chat_id = "A chat azonosítód: \n%d"
+user_welcome = "Üdv! A bot segítségével gyorsan és egyszerűen küldhetsz, és fogadhatsz névtelen kérdéseket."
+hint_answer = "Ha válaszolni szeretnél egy kérdésre, küldj egy választ az üzenetre, amely tartalmazza a feltett kérdést."
+reply_sent = "Válasz sikeresen elküldve."
+new_reply = "Új választ kaptál:\n\n%s"
